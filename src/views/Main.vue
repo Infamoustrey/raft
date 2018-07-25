@@ -83,7 +83,7 @@
 
                                 <v-card-text>
 
-                                    <v-form>
+                                    <v-form> 
 
                                         <v-text-field @input="toggleInputError" v-model="input.name" label="Debt Name" placeholder="Federal Student Loan, Chase Credit Card" />
                                         <v-text-field @input="toggleInputError" v-model="input.principal" label="Principal Remaining ($)" placeholder="$120,000" />
@@ -93,6 +93,10 @@
 
                                         <v-slide-y-transition> 
                                             <p v-show="showInputError" class="subheading red--text">Invalid Values!</p>
+                                        </v-slide-y-transition>
+
+                                        <v-slide-y-transition> 
+                                            <p v-show="!loanValid && showInputError" class="subheading red--text">Unfeasible Loan! You're interest payments are higher than your monthly minimum!</p>
                                         </v-slide-y-transition>
 
                                     </v-form>
@@ -212,7 +216,7 @@ export default {
             principal: '',
             interest_rate: '',
             monthtly_minimum: '',
-            debt_color: ''
+            debt_color: '#f44242'
         },
 
         loans: [ ],
@@ -222,7 +226,7 @@ export default {
             datasets: [
                 {
                     label: 'Debt',
-                    backgroundColor: '#f87979',
+                    backgroundColor: 'rgba(200, 0, 0, 0.1)',
                     data: [100]
                 }
             ]
@@ -236,7 +240,7 @@ export default {
             return {
                 responsive: true, 
                 maintainAspectRatio: false,
-                 scales: {
+                scales: {
                     yAxes: [{
                         ticks: {
                             beginAtZero: true
@@ -246,19 +250,8 @@ export default {
             }
         },
 
-        dates(){
-            let temp = [];
-            let date = moment();
-            let principal = this.loans.reduce( (acc, curr) => acc+curr.principal , 0);
-            let monthly_total_amt = this.loans.reduce( (acc, curr) => acc+curr.monthtly_minimum , 0);
-            //let avgInterestRate = (this.loans.reduce( (acc,curr)=> acc+parseFloat(curr.interest_rate) ,0) / this.loans.length) / 100;
-            while(principal > 0){
-                //principal += principal * avgInterestRate; 
-                principal = principal - monthly_total_amt;
-                date.add(1, 'month');
-                temp.push(date.format('MM/DD/YYYY'));
-            }
-            return temp
+        loanValid(){
+           return parseFloat(this.input.monthtly_minimum) > (parseFloat(this.input.interest_rate) / 100 /12) * parseFloat(this.input.principal)
         },
 
         validateInputs() {
@@ -285,18 +278,40 @@ export default {
 
             });
 
-            this.chartData = { labels: this.dates, datasets }
+            this.chartData = { labels: this.getDates(datasets), datasets }
+        },
+
+        getDates(datasets){
+
+            let max = 0;
+
+            datasets.forEach( set => {
+                if(set.data.length > max){
+                    max = set.data.length;
+                }
+            });
+
+            let date = moment();
+            let temp = [];
+            for(let i = 0; i < max; i++){
+                date.add(1, 'month');
+                temp.push(date.format('MM/DD/YYYY'))
+            }
+
+            return temp;
         },
 
         getPayments(loan){
             let temp = [];
             let principal = 0+parseFloat(loan.principal);
-            let monthly_total_amt = 0+parseFloat(loan.monthtly_minimum);
-            let interest = 0+(parseFloat(loan.interest_rate)/100/12);
+            let monthtly_minimum = 0+parseFloat(loan.monthtly_minimum);
+            let interest_rate = 0+(parseFloat(loan.interest_rate)/100/12);
             while(principal > 0){
-                principal += principal * interest;
-                principal = principal - monthly_total_amt;
-                temp.push( principal.toFixed(2) );
+                principal += principal * interest_rate;
+                principal -= monthtly_minimum;
+                if(principal > 0){
+                    temp.push( principal.toFixed(2) );
+                }
             }
             return temp;
         },
@@ -317,9 +332,9 @@ export default {
 
         addLoan() {
 
-            if(this.validateInputs){
+            if(this.validateInputs && this.loanValid){
                 this.loans.push(this.input);
-                this.showAddLoan = false;
+                this.cancelAddLoan();
                 this.updateChart();
             }else{
                 this.showInputError = true;
