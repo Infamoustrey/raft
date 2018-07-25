@@ -1,6 +1,6 @@
 <template>
 
-<v-container fluid>
+<v-container grid-list-md fluid>
 
 <v-layout row wrap>
 
@@ -42,7 +42,11 @@
                         <span>The amount dedicated to paying off your loans. Must be greater than all loans' minimum payments.</span>
                     </v-tooltip>
 
-                    <v-text-field placeholder="$50" solo  />
+                    <v-text-field v-model="monthly_payment" placeholder="$50" solo />
+
+                    <v-slide-y-reverse-transition>
+                        <p class="red--text" v-show="!monthlyPaymentMeetsMinimum">Amount does not meet monthly minimum!</p>
+                    </v-slide-y-reverse-transition>
 
                 </v-form>
 
@@ -53,7 +57,7 @@
 
     </v-flex>
 
-    <v-flex v-show="loans.length == 0" xs12 md9 px-2>
+    <v-flex v-show="loans.length == 0" xs12 md9>
 
         <v-jumbotron height="100%" color="primary">
             <v-container fill-height>
@@ -89,7 +93,7 @@
                                         <v-text-field @input="toggleInputError" v-model="input.principal" label="Principal Remaining ($)" placeholder="$120,000" />
                                         <v-text-field @input="toggleInputError" v-model="input.interest_rate" label="Interest Rate (%)" placeholder="28.9%" />
                                         <v-text-field @input="toggleInputError" v-model="input.monthtly_minimum" label="Monthly Minimum Payment ($)" placeholder="$1000.00" />
-                                        <v-text-field @input="toggleInputError" v-model="input.debt_color" label="Color" placeholder="red" />
+                                        <v-text-field @keydown.enter="addLoan" @input="toggleInputError" v-model="input.debt_color" label="Color" placeholder="red" />
 
                                         <v-slide-y-transition> 
                                             <p v-show="showInputError" class="subheading red--text">Invalid Values!</p>
@@ -125,9 +129,94 @@
 
     </v-flex>
 
-    <v-flex v-show="loans.length > 0" text-xs-center xs12 md9 px-4>
+    <v-flex v-show="loans.length > 0" text-xs-center xs12 md9>
 
-        <line-chart :chartData="chartData" :options="chartOptions"></line-chart>
+        <v-container fluid grid-list-sm>
+            <v-layout row wrap>
+ 
+                <v-flex d-flex xs12 sm3>
+                    <v-card color="purple white--text">
+                        <v-card-title class="subheading">
+                            <v-layout>
+                                <v-flex><v-icon color="white">fa-dollar-sign</v-icon></v-flex>
+                                <v-flex>Principal Paid</v-flex>
+                            </v-layout>
+                        </v-card-title>
+                        <v-card-text>
+                            <h1 class="title">{{totalPrincipal | displayMoney}}</h1>
+                            <p>That's only {{totalPrincipal | displayMoney}} to go!</p>
+                        </v-card-text>
+                    </v-card>
+                </v-flex>
+
+                <v-flex d-flex xs12 sm3>
+                    <v-card color="teal lighten-2 white--text">
+                        <v-card-title class="subheading">
+                            <v-layout>
+                                <v-flex><v-icon color="white">fa-calendar-alt</v-icon></v-flex>
+                                <v-flex>Paid Off</v-flex>
+                            </v-layout>
+                        </v-card-title>
+                        <v-card-text>
+                            <h1 class="title">{{payoff_date}}</h1>
+                            <p>Debt free in {{time_to_payoff}}</p>
+                        </v-card-text>
+                    </v-card>
+                </v-flex>
+
+                <v-flex d-flex xs12 sm3>
+                    <v-card color="orange darken-2 white--text">
+                        <v-card-title class="subheading">
+                            <v-layout>
+                                <v-flex><v-icon color="white">fa-calendar-alt</v-icon></v-flex>
+                                <v-flex>Interest Paid</v-flex>
+                            </v-layout>
+                        </v-card-title>
+                        <v-card-text>
+                            <h1 class="title">{{total_interest_paid | displayMoney}}</h1>
+                            <p>Oh No!</p>
+                        </v-card-text>
+                    </v-card>
+                </v-flex>
+
+                <v-flex d-flex xs12 sm3>
+                    <v-card color="yellow darken-2 white--text">
+                        <v-card-title class="subheading">
+                            <v-layout>
+                                <v-flex><v-icon color="white">fa-calendar-alt</v-icon></v-flex>
+                                <v-flex>Average Interest Rate</v-flex>
+                            </v-layout>
+                        </v-card-title>
+                        <v-card-text>
+                            <h1 class="title">{{avg_interest_rate}}%</h1>
+                            <p>Your average interest rate across all loans</p>
+                        </v-card-text>
+                    </v-card>
+                </v-flex>
+
+                <v-flex xs12>
+
+                    <v-tabs color="primary" dark slider-color="secondary" >
+                        <v-tab>Principal Remaining</v-tab>
+                        <v-tab-item>
+                            <v-card>
+
+                                <v-card-title>
+
+                                </v-card-title>
+
+                                <v-card-text>
+                                    <line-chart :chartData="chartData" :options="chartOptions"></line-chart>
+                                </v-card-text>
+
+                            </v-card>
+                        </v-tab-item>
+                    </v-tabs>
+
+                </v-flex>
+
+            </v-layout> 
+        </v-container>
 
     </v-flex>
 
@@ -204,6 +293,9 @@ export default {
         showInputError: false,
         showAddLoan: false,
 
+        monthly_payment: 0,
+        numberOfPayments: 0,
+
         headers: [
             { text: 'Debt Name', value: 'name'},
             { text: 'Principal', value: 'principal', align: 'center'},
@@ -250,6 +342,10 @@ export default {
             }
         },
 
+        avg_interest_rate(){
+            return (this.loans.reduce( (acc,curr)=>acc+parseFloat(curr.interest_rate) ,0) / this.loans.length).toFixed(2);
+        },
+
         loanValid(){
            return parseFloat(this.input.monthtly_minimum) > (parseFloat(this.input.interest_rate) / 100 /12) * parseFloat(this.input.principal)
         },
@@ -258,6 +354,46 @@ export default {
             return accounting.unformat(this.input.principal) != 0
                 && accounting.unformat(this.input.monthtly_minimum) != 0
                 && !isNaN(parseFloat(this.input.interest_rate))
+        },
+
+        monthlyPaymentMeetsMinimum(){
+            return this.monthly_payment >= this.loans.reduce( (acc,curr)=>acc+parseFloat(curr.monthtly_minimum) ,0);
+        },
+
+        totalPrincipal(){
+            return this.loans.reduce( (acc,curr) => acc+parseFloat(curr.principal), 0)
+        },
+
+        payoff_date(){
+            let date = moment();
+            date.add(this.numberOfPayments, 'months');
+            return date.format('MMMM YYYY')
+        },
+
+        time_to_payoff(){
+            let date = moment();
+            date.add(this.numberOfPayments, 'months');
+            return date.fromNow();
+        },
+
+        total_interest_paid(){
+            
+            let total = 0;
+            
+            this.loans.forEach(loan => {
+                let principal = 0+parseFloat(loan.principal);
+                let monthtly_minimum = 0+parseFloat(loan.monthtly_minimum);
+                let interest_rate = 0+(parseFloat(loan.interest_rate)/100/12);
+                while(principal > 0){
+                    let interest_paid = principal * interest_rate;
+                    principal += interest_paid;
+                    principal -= monthtly_minimum;
+                    total += interest_paid;
+                }
+            });
+
+            return total;
+
         }
 
     },
@@ -290,7 +426,7 @@ export default {
                     max = set.data.length;
                 }
             });
-
+            this.numberOfPayments = max;
             let date = moment();
             let temp = [];
             for(let i = 0; i < max; i++){
@@ -330,11 +466,16 @@ export default {
             };
         },
 
+        updateMinimumMonthlyPayment(){
+            this.monthly_payment = this.loans.reduce( (acc,curr)=>acc+parseFloat(curr.monthtly_minimum) ,0)
+        },
+
         addLoan() {
 
             if(this.validateInputs && this.loanValid){
                 this.loans.push(this.input);
                 this.cancelAddLoan();
+                this.updateMinimumMonthlyPayment();
                 this.updateChart();
             }else{
                 this.showInputError = true;
