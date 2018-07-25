@@ -68,7 +68,7 @@
 
                         <v-divider class="my-3 white white--text"></v-divider>
 
-                        <span class="subheading white--text">raft is a loan calculator that helps you pay off your debts.<br /><br />Discover an optimized payment plan to minimize interest and get debt free as fast as possible.</span>
+                        <span class="subheading white--text">Raft is a loan calculator that helps you pay off your debts.<br /><br />Discover an optimized payment plan to minimize interest and get debt free as fast as possible.</span>
 
                         <br />
                         <br />

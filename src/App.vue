@@ -8,18 +8,22 @@
     <v-content>
       <router-view/>
     </v-content>
-    <v-footer app>
-      <span>&copy; 2017</span>
+    <v-footer>
+      <p class="ma-0 text-xs-center" style="width:100%;">&copy; {{currentYear}} Trey Foster</p>
     </v-footer>
   </v-app>
 </template>
 
 <script>
+import moment from 'moment'
 export default {
   data () {
     return {
       title: 'Raft'
     }
+  },
+  computed: {
+    currentYear(){return moment().format('YYYY')}
   },
   name: 'App'
 }
