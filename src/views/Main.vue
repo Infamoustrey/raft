@@ -42,7 +42,7 @@
                         <span>The amount dedicated to paying off your loans. Must be greater than all loans' minimum payments.</span>
                     </v-tooltip>
 
-                    <v-text-field v-model="monthly_payment" placeholder="$50" solo />
+                    <v-text-field @input="updateMonthly" v-model="monthly_payment" placeholder="$50" solo />
 
                     <v-slide-y-reverse-transition>
                         <p class="red--text" v-show="!monthlyPaymentMeetsMinimum">Amount does not meet monthly minimum!</p>
@@ -358,7 +358,15 @@ export default {
         },
 
         monthlyPaymentMeetsMinimum(){
-            return this.monthly_payment >= this.loans.reduce( (acc,curr)=>acc+parseFloat(curr.monthtly_minimum) ,0);
+            return this.monthly_payment >= this.absoluteMinimum;
+        },
+        
+        absoluteMinimum(){
+            return this.loans.reduce( (acc,curr)=>acc+parseFloat(curr.monthtly_minimum) ,0);
+        },
+
+        amountAfterMonthlyMinimums(){
+            return this.monthly_payment - this.absoluteMinimum;
         },
 
         totalPrincipal(){
@@ -401,6 +409,33 @@ export default {
 
     methods: {
 
+        updateMonthly(){
+            if(this.monthlyPaymentMeetsMinimum){
+                this.createPayments();
+            }
+        },
+
+        getDates(){
+            let lastPaymentDate = moment().format('MM/DD/YYYY');
+            this.payments.forEach( pmt => { 
+                if( moment(pmt.date).isAfter( lastPaymentDate ) ){ 
+                    lastPaymentDate = pmt.date;
+                } 
+            });
+
+            console.log('Last Payment Date: ',lastPaymentDate)
+            
+            let month = moment();
+            let temp = [];
+            while( month.isBefore(lastPaymentDate) ){ 
+
+                temp.push( month.format('MM/YYYY') )
+                month.add(1, 'month')
+
+            }
+            return temp;
+        },
+
         updateChart(){
 
             let datasets = [];
@@ -416,7 +451,7 @@ export default {
             });
 
             this.chartData = { 
-                labels: this.payments.filter(p => p.debt_name==this.loans[0].name).map(payment => payment.date), 
+                labels: this.getDates(), 
                 datasets 
             }
         },
@@ -439,11 +474,36 @@ export default {
             this.monthly_payment = this.loans.reduce( (acc,curr)=>acc+parseFloat(curr.monthtly_minimum) ,0)
         },
 
-        createPayments(){
+        async createPayments(){
+
+            this.updateMinimumMonthlyPayment();
 
             this.payments = [];
 
-            this.loans.forEach( loan => {
+            if(this.paymentMethod == 'avalanche'){
+                this.loans.sort( (a, b) => {
+                    if( parseFloat(a.interest_rate) > parseFloat(b.interest_rate) ){
+                        return 1;
+                    }else if( parseFloat(a.interest_rate) < parseFloat(b.interest_rate) ) {
+                        return -1;
+                    }
+                    return 0;
+                });
+            }else{
+                this.loans.sort( (a, b) => {
+                    if( parseFloat(a.principal) > parseFloat(b.principal) ){
+                        return 1;
+                    }else if( parseFloat(a.principal) < parseFloat(b.principal) ) {
+                        return -1;
+                    }
+                    return 0;
+                });
+            }
+
+            let last_payment_date = moment().subtract(1, 'month').format('MM/DD/YYYY');
+
+            for(let i = 0; i < this.loans.length; i++){
+                let loan = this.loans[i];
 
                 let date = moment();
 
@@ -459,23 +519,39 @@ export default {
 
                     interest_paid += interest;
                     principal += interest;
+                    
+                    if(date.isAfter(last_payment_date)){
+                        console.log({
+                            Loan : loan.name,
+                            PaymentDate: date.format('MM/DD/YYYY'),
+                            ExtraAmount: this.amountAfterMonthlyMinimums - this.loans.reduce( (acc, loan, index) => { if(index < i) {return acc+loan.monthtly_minimum} return acc } , 0)
+                        })
+                        principal -= (this.amountAfterMonthlyMinimums - this.loans.reduce( (acc, loan, index) => { if(index < i) {return acc+loan.monthtly_minimum} return acc } , 0) );
+                    }
+
                     principal -= monthtly_minimum;
 
-                    if(principal <= 0){ principal = 0;}
+                    // Last Payment
+                    if(principal <= 0){
+                        last_payment_date = date.format('MM/DD/YYYY');
+                        principal = 0;
+                    }
+
                     this.payments.push({
                         debt_name: loan.name,
                         principal_remaining: parseFloat( principal.toFixed(2) ),
                         interest_paid: parseFloat( interest_paid.toFixed(2) ),
                         payment_amount: monthtly_minimum,
-                        date: date.format('MM/YYYY')
+                        date: date.format('MM/DD/YYYY')
                     });
 
                     date.add(1, 'month');
 
                 }
-                
-            });
 
+            }
+
+            this.updateChart();
 
 
         },
@@ -494,9 +570,7 @@ export default {
                 this.input.debt_color = this.getRandomTransparentColor();
                 this.loans.push(this.input);
                 this.cancelAddLoan();
-                this.updateMinimumMonthlyPayment();
                 this.createPayments();
-                this.updateChart();
             }else{
                 this.showInputError = true;
             }
