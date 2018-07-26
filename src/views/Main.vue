@@ -92,8 +92,7 @@
                                         <v-text-field @input="toggleInputError" v-model="input.name" label="Debt Name" placeholder="Federal Student Loan, Chase Credit Card" />
                                         <v-text-field @input="toggleInputError" v-model="input.principal" label="Principal Remaining ($)" placeholder="$120,000" />
                                         <v-text-field @input="toggleInputError" v-model="input.interest_rate" label="Interest Rate (%)" placeholder="28.9%" />
-                                        <v-text-field @input="toggleInputError" v-model="input.monthtly_minimum" label="Monthly Minimum Payment ($)" placeholder="$1000.00" />
-                                        <v-text-field @keydown.enter="addLoan" @input="toggleInputError" v-model="input.debt_color" label="Color" placeholder="red" />
+                                        <v-text-field @keydown.enter="addLoan" @input="toggleInputError" v-model="input.monthtly_minimum" label="Monthly Minimum Payment ($)" placeholder="$1000.00" />
 
                                         <v-slide-y-transition> 
                                             <p v-show="showInputError" class="subheading red--text">Invalid Values!</p>
@@ -313,6 +312,8 @@ export default {
 
         loans: [ ],
 
+        payments: [],
+
         chartData: {
             labels: ['Something'],
             datasets: [
@@ -409,47 +410,15 @@ export default {
                 datasets.push({
                     label: loan.name,
                     backgroundColor: loan.debt_color,
-                    data: this.getPayments(loan)
+                    data: this.payments.filter(payment => payment.debt_name == loan.name).map(payment => payment.principal_remaining)
                 });
 
             });
 
-            this.chartData = { labels: this.getDates(datasets), datasets }
-        },
-
-        getDates(datasets){
-
-            let max = 0;
-
-            datasets.forEach( set => {
-                if(set.data.length > max){
-                    max = set.data.length;
-                }
-            });
-            this.numberOfPayments = max;
-            let date = moment();
-            let temp = [];
-            for(let i = 0; i < max; i++){
-                date.add(1, 'month');
-                temp.push(date.format('MM/DD/YYYY'))
+            this.chartData = { 
+                labels: this.payments.filter(p => p.debt_name==this.loans[0].name).map(payment => payment.date), 
+                datasets 
             }
-
-            return temp;
-        },
-
-        getPayments(loan){
-            let temp = [];
-            let principal = 0+parseFloat(loan.principal);
-            let monthtly_minimum = 0+parseFloat(loan.monthtly_minimum);
-            let interest_rate = 0+(parseFloat(loan.interest_rate)/100/12);
-            while(principal > 0){
-                principal += principal * interest_rate;
-                principal -= monthtly_minimum;
-                if(principal > 0){
-                    temp.push( principal.toFixed(2) );
-                }
-            }
-            return temp;
         },
 
         toggleInputError(){
@@ -470,12 +439,63 @@ export default {
             this.monthly_payment = this.loans.reduce( (acc,curr)=>acc+parseFloat(curr.monthtly_minimum) ,0)
         },
 
+        createPayments(){
+
+            this.payments = [];
+
+            this.loans.forEach( loan => {
+
+                let date = moment();
+
+                let principal = parseFloat(loan.principal);
+                let monthtly_minimum = parseFloat(loan.monthtly_minimum);
+                let interest_rate = parseFloat(loan.interest_rate) / 100 / 12;
+
+                let interest_paid = 0;
+
+                while(principal > 0){
+
+                    let interest = principal * interest_rate;
+
+                    interest_paid += interest;
+                    principal += interest;
+                    principal -= monthtly_minimum;
+
+                    if(principal <= 0){ principal = 0;}
+                    this.payments.push({
+                        debt_name: loan.name,
+                        principal_remaining: parseFloat( principal.toFixed(2) ),
+                        interest_paid: parseFloat( interest_paid.toFixed(2) ),
+                        payment_amount: monthtly_minimum,
+                        date: date.format('MM/YYYY')
+                    });
+
+                    date.add(1, 'month');
+
+                }
+                
+            });
+
+
+
+        },
+
+        getRandom255Val(){
+            return Math.floor( Math.random() * 255 )
+        },
+
+        getRandomTransparentColor(){
+            return `rgba(${this.getRandom255Val()}, ${this.getRandom255Val()}, ${this.getRandom255Val()}, 0.3)`;
+        },
+
         addLoan() {
 
             if(this.validateInputs && this.loanValid){
+                this.input.debt_color = this.getRandomTransparentColor();
                 this.loans.push(this.input);
                 this.cancelAddLoan();
                 this.updateMinimumMonthlyPayment();
+                this.createPayments();
                 this.updateChart();
             }else{
                 this.showInputError = true;
