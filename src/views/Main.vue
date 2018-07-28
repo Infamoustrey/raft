@@ -471,7 +471,9 @@ export default {
         },
 
         updateMinimumMonthlyPayment(){
-            this.monthly_payment = this.loans.reduce( (acc,curr)=>acc+parseFloat(curr.monthtly_minimum) ,0)
+            if(!this.monthlyPaymentMeetsMinimum){
+                this.monthly_payment = this.absoluteMinimum;
+            }
         },
 
         async createPayments(){
