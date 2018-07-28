@@ -293,7 +293,6 @@ export default {
         showAddLoan: false,
 
         monthly_payment: 0,
-        numberOfPayments: 0,
 
         headers: [
             { text: 'Debt Name', value: 'name'},
@@ -328,6 +327,10 @@ export default {
     }},
 
     computed: {
+
+        numberOfPayments(){
+            return this.getDates.length
+        },
 
         chartOptions(){
             return {
