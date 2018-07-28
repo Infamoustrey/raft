@@ -26,8 +26,8 @@
                         <span>The order in which loans are paid off, either focusing on largest interest rate, or lowest principal. The <b>Avalanche</b> method results in the least amount of interest paid. The <b>Snowball</b> method results in paying off smaller loans faster.</span>
                     </v-tooltip>
 
-                    <v-checkbox v-model="paymentMethod" value="avalanche" label="Highest Intrest Rate (Avalance)" />
-                    <v-checkbox v-model="paymentMethod" value="snowball" label="Lowest Principal (Snowball)" />
+                    <v-checkbox @change="createPayments" v-model="paymentMethod" value="avalanche" label="Highest Intrest Rate (Avalance)" />
+                    <v-checkbox @change="createPayments" v-model="paymentMethod" value="snowball" label="Lowest Principal (Snowball)" />
 
                 </v-form>
 
